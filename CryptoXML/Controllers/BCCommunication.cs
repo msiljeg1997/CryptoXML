@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Mvc;
 using System.Xml.Serialization;
 using ServiceReference1;
 using System.Data.SqlTypes;
+using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 
 namespace CryptoXML.Controllers
 {
@@ -74,6 +76,65 @@ namespace CryptoXML.Controllers
                 return Ok("An error occurred: " + ex.Message + ex);
             }
             return Ok("Successfully inserted into the database");
+        }
+
+        [HttpGet]
+        [Route("api/dohvatiSve")]
+        public async Task<ActionResult<List<CryptoData>>> GetAllEntries()
+        {
+            var entries = await _context.CryptoData.ToListAsync();
+
+            return Ok(entries);
+        }
+
+
+        [HttpGet("api/{symbol}")]
+
+        public async Task<ActionResult<List<CryptoData>>> GetOneEntry(string symbol)
+        {
+            var entry = await _context.CryptoData.FirstOrDefaultAsync(e => e.Symbol == symbol);
+
+            if (entry == null)
+                return BadRequest("trazis nevidljivo, trazis nepostojece, lutas...");
+
+            return Ok(entry);
+        }
+
+
+        [HttpPost]
+        [Route("api/postavi")]
+
+        public async Task<ActionResult<List<CryptoData>>> PostEntry(CryptoData entry)
+        {
+            _context.CryptoData.Add(entry);
+            await _context.SaveChangesAsync();
+            return Ok(entry);
+        }
+
+        [HttpPut]
+        [Route("api/updejtaj{Symbol}")]
+
+        public async Task<ActionResult<List<CryptoData>>> UpdateEntry(CryptoData updatedEntry, string Symbol)
+        {
+            var entry = await _context.CryptoData.FirstOrDefaultAsync(e => e.Symbol == Symbol);
+            if (entry == null)
+                return BadRequest("trazis nevidljivo, trazis nepostojece, lutas...");
+
+            entry.Id = updatedEntry.Id;
+            entry.Rank = updatedEntry.Rank;
+            entry.Name = updatedEntry.Name;
+            entry.Supply = updatedEntry.Supply;
+            entry.MarketCapUsd = updatedEntry.MarketCapUsd;
+            entry.VolumeUsd24Hr = updatedEntry.VolumeUsd24Hr;
+            entry.PriceUsd = updatedEntry.PriceUsd;
+            entry.ChangePercent24Hr = updatedEntry.ChangePercent24Hr;
+            entry.Vwap24Hr = updatedEntry.Vwap24Hr;
+            entry.Explorer = updatedEntry.Explorer;
+            entry.MaxSupply = updatedEntry.MaxSupply;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(entry);
         }
     }
 }
