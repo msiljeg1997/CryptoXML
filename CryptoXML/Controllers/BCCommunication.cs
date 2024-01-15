@@ -47,7 +47,6 @@ namespace CryptoXML.Controllers
                 deserializedNavResponse = DeserializeXmlString<Root>(executeMethodResponse.Body.dataStream);
                 foreach (var rate in deserializedNavResponse.Data)
                 {
-
                     var cryptoRate = new CryptoData
                     {
                         Id = rate.Id,
@@ -66,7 +65,15 @@ namespace CryptoXML.Controllers
                                     rate.TajmStamp > (DateTime)SqlDateTime.MaxValue ? (DateTime)SqlDateTime.MaxValue : rate.TajmStamp
                     };
 
-                    _context.CryptoData.Add(cryptoRate);
+                    // Provjera dali postoji isti key
+                    var existingEntry = await _context.CryptoData
+                        .FirstOrDefaultAsync(e => e.Symbol == cryptoRate.Symbol && e.TajmStamp == cryptoRate.TajmStamp);
+
+                    if (existingEntry == null)
+                    {
+                        // Dodaj ako !postoji
+                        _context.CryptoData.Add(cryptoRate);
+                    }
                 }
 
                 await _context.SaveChangesAsync();
@@ -83,6 +90,8 @@ namespace CryptoXML.Controllers
         public async Task<ActionResult<List<CryptoData>>> GetAllEntries()
         {
             var entries = await _context.CryptoData.ToListAsync();
+            if (entries == null)
+                return BadRequest("nema nista u bazi sine..lutas");
 
             return Ok(entries);
         }
@@ -136,6 +145,22 @@ namespace CryptoXML.Controllers
 
             return Ok(entry);
         }
+
+        [HttpDelete]
+        [Route("api/brisi{Symbol}")]
+
+        public async Task<ActionResult<List<CryptoData>>> DeleteEntry(string Symbol)
+        {
+            var entry = await _context.CryptoData.FirstOrDefaultAsync(e => e.Symbol == Symbol);
+            if (entry == null) 
+                return BadRequest("trazis nevidljivo, trazis nepostojece, nema to sta zelis da se obrise...lutas...");
+
+            _context.CryptoData.Remove(entry);
+            await _context.SaveChangesAsync();
+
+            return Ok(entry + "izbrisano.");
+        }
+
     }
 }
 
