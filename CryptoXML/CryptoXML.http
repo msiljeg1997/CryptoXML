@@ -1,0 +1,6 @@
+@CryptoXML_HostAddress = http://localhost:5168
+
+GET {{CryptoXML_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
