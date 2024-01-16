@@ -6,6 +6,7 @@ using ServiceReference1;
 using System.Data.SqlTypes;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
+using System.Globalization;
 
 namespace CryptoXML.Controllers
 {
@@ -14,11 +15,13 @@ namespace CryptoXML.Controllers
     public class BCCommunication : ControllerBase
     {
         private readonly IvekVjezbaKriptoContext _context;
+        private readonly ILogger<BCCommunication> _logger;
         private readonly MainServisNETCore_PortClient _soapServiceClient;
 
-        public BCCommunication(IvekVjezbaKriptoContext context)
+        public BCCommunication(IvekVjezbaKriptoContext context, ILogger<BCCommunication> logger)
         {
             _context = context;
+            _logger = logger;
             _soapServiceClient = new MainServisNETCore_PortClient();
         }
 
@@ -39,14 +42,25 @@ namespace CryptoXML.Controllers
         {
             string dataStream = "ExecuteMethod";
 
+            List<string> logMessages = new List<string>();
+            int successfulAdds = 0;
+            int failedAdds = 0;
+
             try
             {
                 var executeMethodResponse = await _soapServiceClient.ExecuteMethodAsync(dataStream);
 
                 Root deserializedNavResponse;
                 deserializedNavResponse = DeserializeXmlString<Root>(executeMethodResponse.Body.dataStream);
-                foreach (var rate in deserializedNavResponse.Data)
+
+                for (int i = 1; i < deserializedNavResponse.Data.Count; i++)
                 {
+
+                    try
+                    { 
+                    
+                    var rate = deserializedNavResponse.Data[i];
+
                     var cryptoRate = new CryptoData
                     {
                         Id = rate.Id,
@@ -61,29 +75,43 @@ namespace CryptoXML.Controllers
                         ChangePercent24Hr = (decimal)rate.ChangePercent24Hr,
                         Vwap24Hr = (decimal)rate.Vwap24Hr,
                         Explorer = rate.Explorer,
-                        TajmStamp = rate.TajmStamp < (DateTime)SqlDateTime.MinValue ? (DateTime)SqlDateTime.MinValue :
-                                    rate.TajmStamp > (DateTime)SqlDateTime.MaxValue ? (DateTime)SqlDateTime.MaxValue : rate.TajmStamp
+                        TajmStamp = rate.TajmStamp
                     };
 
-                    // Provjera dali postoji isti key
-                    var existingEntry = await _context.CryptoData
-                        .FirstOrDefaultAsync(e => e.Symbol == cryptoRate.Symbol && e.TajmStamp == cryptoRate.TajmStamp);
+                        var existingEntry = await _context.CryptoData
+                     .FirstOrDefaultAsync(e => e.Symbol == cryptoRate.Symbol && e.TajmStamp == cryptoRate.TajmStamp);
+                        if (existingEntry == null)
+                        {
+                            _context.CryptoData.Add(cryptoRate);
+                            await _context.SaveChangesAsync();
+                            successfulAdds++;
+                        }
+                        else
+                        {
+                          failedAdds++;
+                        }
+                    }
 
-                    if (existingEntry == null)
+                    catch (Exception ex)
                     {
-                        // Dodaj ako !postoji
-                        _context.CryptoData.Add(cryptoRate);
+                        _logger.LogError($"An error occurred on iteration {i}: {ex.Message}", ex);
+
                     }
                 }
-
+            
                 await _context.SaveChangesAsync();
             }
             catch (Exception ex)
             {
                 return Ok("An error occurred: " + ex.Message + ex);
             }
-            return Ok("Successfully inserted into the database");
+            return Ok(new { Message = $" inserted {successfulAdds} items into the database failed entries because of same key {failedAdds}", LogMessages = logMessages, SuccessfulAdds = successfulAdds, failedAdds = failedAdds });
         }
+
+
+
+
+
 
         [HttpGet]
         [Route("api/dohvatiSve")]

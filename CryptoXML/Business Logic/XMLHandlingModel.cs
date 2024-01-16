@@ -41,7 +41,7 @@ public class Data
     [XmlElement(ElementName = "maxSupply")]
     public double MaxSupply { get; set; }
 
-    [XmlElement(ElementName = "TajmStampString")]
+    [XmlElement(ElementName = "tajmStamp")]
     public string TajmStampString { get; set; }
 
     [XmlIgnore]
@@ -50,7 +50,7 @@ public class Data
         get
         {
             DateTime dateTime;
-            DateTime.TryParseExact(TajmStampString, "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture, DateTimeStyles.None, out dateTime);
+            DateTime.TryParseExact(TajmStampString, "yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out dateTime);
             return dateTime;
         }
     }
